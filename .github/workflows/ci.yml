@@ -34,7 +34,7 @@ jobs:
       working-directory: ./front
 
     - name: Build front-end container
-      run: docker build -t bobapp-front .
+      run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bobapp-front:latest .
       working-directory: ./front
 
     - name: Log in to Docker Hub
@@ -44,7 +44,7 @@ jobs:
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - name: Push front-end container
-      run: docker push bobapp-front
+      run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bobapp-front:latest
       working-directory: ./front
 
   build-and-test-back-end:
@@ -69,7 +69,7 @@ jobs:
       working-directory: ./back
 
     - name: Build back-end container
-      run: docker build -t bobapp-back .
+      run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bobapp-back:latest .
       working-directory: ./back
 
     - name: Log in to Docker Hub (if not logged in already)
@@ -79,7 +79,7 @@ jobs:
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - name: Push back-end container
-      run: docker push bobapp-back
+      run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bobapp-back:latest
       working-directory: ./back
 
   sonarcloud-analysis:
