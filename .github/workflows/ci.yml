@@ -104,4 +104,4 @@ jobs:
           -Dsonar.javascript.lcov.reportPaths=front/coverage/lcov.info
           -Dsonar.java.coveragePlugin=jacoco
           -Dsonar.jacoco.reportPaths=back/target/jacoco.exec
-          -Dsonar.java.source=11 # Spécifiez la version 11 de Java ici
+          -Dsonar.java.source=11
