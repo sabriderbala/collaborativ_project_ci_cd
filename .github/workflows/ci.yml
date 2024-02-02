@@ -101,6 +101,8 @@ jobs:
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       with:
+        java-version: '17'
+        distribution: 'temurin'
         args: >
           -Dsonar.projectKey=sabriderbala_collaborativ_project_ci_cd
           -Dsonar.organization=sabriderbala
