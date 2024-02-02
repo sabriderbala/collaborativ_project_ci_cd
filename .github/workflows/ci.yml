@@ -96,15 +96,8 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Set up Java 11 for rest of the workflow
-      uses: actions/setup-java@v2
-      with:
-        java-version: '11'
-        distribution: 'temurin'
-        path: ${{ runner.tool_cache }}/jdk
-
-    - name: Set JAVA_HOME for SonarCloud analysis
-      run: echo "JAVA_HOME=${{ runner.tool_cache }}/jdk" >> $GITHUB_ENV
+      env:
+        JAVA_HOME: ${{ runner.tool_cache }}/Java_Tool/17/x64
 
     - name: Set up SonarCloud scanner
       uses: SonarSource/sonarcloud-github-action@v1.6
