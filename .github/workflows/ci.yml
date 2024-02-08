@@ -30,7 +30,7 @@ jobs:
       working-directory: ./front
 
     - name: Run Test
-      run: npm test --code-coverage --watch=false --browsers=ChromeHeadlessNoSandbox
+      run: npm test --code-coverage --watch=false --browsers=FirefoxHeadless
       working-directory: ./front
 
 
