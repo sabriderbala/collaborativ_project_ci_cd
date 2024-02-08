@@ -1,4 +1,4 @@
-name: CI for BobApp2
+name: CI/CD Projet Collaboratif
 
 on:
   push:
@@ -10,97 +10,119 @@ on:
 
 jobs:
   build-and-test-front-end:
-    name: Build and Test Front-end
+    name: Construction Front-end et push de l'image sur Docker Hub
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '18.x'
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18.x'
 
-    - name: Install packages
-      run: npm ci
-      working-directory: ./front
+      - name: Install packages
+        run: npm ci
+        working-directory: ./front
 
-    - name: Build package
-      run: npm run build --if-present
-      working-directory: ./front
+      - name: Build package
+        run: npm run build --if-present
+        working-directory: ./front
 
-    - name: Run Test
-      run: npm test -- --watch=false --browsers=ChromeHeadless
-      working-directory: ./front
+      - name: Build front-end container
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bobapp-front:latest .
+        working-directory: ./front
 
-    - name: Build front-end container
-      run: docker build -t bobapp-front .
-      working-directory: ./front
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v1
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-    - name: Push front-end container
-      run: docker push bobapp-front
-      working-directory: ./front
+      - name: Push front-end container
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bobapp-front:latest
+        working-directory: ./front
 
   build-and-test-back-end:
-    name: Build and Test Back-end
+    name: Construction Back-end et push de l'image sur Docker Hub
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Set up JDK 11
-      uses: actions/setup-java@v2
-      with:
-        java-version: '11'
-        distribution: 'temurin'
+      - name: Set up JDK 11
+        uses: actions/setup-java@v2
+        with:
+          java-version: '11'
+          distribution: 'temurin'
 
-    - name: Install back-end dependencies
-      run: mvn clean install
-      working-directory: ./back
+      - name: Install back-end dependencies
+        run: mvn clean install
+        working-directory: ./back
 
-    - name: Launch Test with Maven
-      run: mvn clean test
-      working-directory: ./back
+      - name: Launch Test with Maven
+        run: mvn clean test
+        working-directory: ./back
 
-    - name: Build back-end container
-      run: docker build -t bobapp-back .
-      working-directory: ./back
+      - name: Run tests and generate Jacoco report
+        run: mvn test jacoco:report
+        working-directory: back
 
-    - name: Log in to Docker Hub (if not logged in already)
-      uses: docker/login-action@v1
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build back-end container
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bobapp-back:latest .
+        working-directory: ./back
 
-    - name: Push back-end container
-      run: docker push bobapp-back
-      working-directory: ./back
+      - name: Log in to Docker Hub (if not logged in already)
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  sonarcloud-analysis:
-    name: SonarCloud Analysis
-    needs: [build-and-test-front-end, build-and-test-back-end]
+      - name: Push back-end container
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bobapp-back:latest
+        working-directory: ./back
+
+  analyze-with-sonarcloud:
+    name: Analyze with SonarCloud
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-    - name: Set up SonarCloud scanner
-      uses: SonarSource/sonarcloud-github-action@main
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      with:
-        args: >
-          -Dsonar.projectKey=sabriderbala_collaborativ_project_ci_cd
-          -Dsonar.organization=sabriderbala
-          -Dsonar.sources=front,back
-          -Dsonar.tests=front,back
-          -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.ts,**/*.spec.js,**/*.test.js
-          -Dsonar.javascript.lcov.reportPaths=front/coverage/lcov.info
-          -Dsonar.java.coveragePlugin=jacoco
-          -Dsonar.jacoco.reportPaths=back/target/jacoco.exec
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: 17
+          distribution: 'zulu'
+
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Cache Maven packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('back/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Analyze back-end with SonarCloud
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: mvn -B -f back/pom.xml verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=sabriderbala_collaborativ_project_ci_cd
+
+      - name: Analyze front-end with SonarCloud
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          npm ci
+          npm run build
+          npm test -- --watch=false --coverage
+          sonar-scanner -Dsonar.projectKey=sabriderbala_collaborativ_project_ci_cd -Dsonar.sources=front -Dsonar.tests=front -Dsonar.test.inclusions=**/*.test.js,**/*.spec.js,**/tests/** -Dsonar.javascript.lcov.reportPaths=front/coverage/lcov.info -Dsonar.coverage.exclusions=front/node_modules/**,front/build/**,front/src/index.js -Dsonar.typescript.lcov.reportPaths=front/coverage/lcov.info
